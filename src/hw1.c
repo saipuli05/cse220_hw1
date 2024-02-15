@@ -43,7 +43,7 @@ void print_packet_sf(unsigned char packet[])
         int32_t payload = bytes(packet[i], packet[i + 1], packet[i + 2], packet[i + 3]);
         printf("%d ", payload);
     }
-    print(" ");
+    printf(" ");
     printf("\n");
     (void)packet;
 
