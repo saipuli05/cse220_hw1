@@ -41,9 +41,14 @@ void print_packet_sf(unsigned char packet[])
     printf("Payload: ");
     for (unsigned int i = 16; i < packLength; i = i + 4){
         int32_t payload = bytes(packet[i], packet[i + 1], packet[i + 2], packet[i + 3]);
-        printf("%d ", payload);
+        if(i + 4 < packLength){
+            printf("%d ", payload);
+            }
+        else{
+            printf("%d", payload);
+        }
+        
     }
-    printf(" ");
     printf("\n");
     (void)packet;
 
