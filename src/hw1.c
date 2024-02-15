@@ -57,8 +57,27 @@ void print_packet_sf(unsigned char packet[])
 
 unsigned int compute_checksum_sf(unsigned char packet[])
 {
+    unsigned long long sum = 0;
+
+    sum += (packet[0] << 20) | (packet[1] << 12) | (packet[2] << 4) | (packet[3] >> 4);
+    sum += ((packet[3] & 0x0F) << 24) | (packet[4] << 16) | (packet[5] << 8) | packet[6];
+    sum += packet[7] >> 4;
+    sum += packet[7] & 0x0F;
+    sum += (packet[8] << 6) | (packet[9] >> 2);
+    sum += ((packet[9] & 0x03) << 12) | (packet[10] << 4) | (packet[11] >> 4);
+    sum += ((packet[11] & 0x0F) << 1) | (packet[12] >> 7);
+    sum += packet[15] >> 6;
+    sum += packet[15] & 0x3F;
+
+    unsigned int packLength = ((packet[9] & 0x03) << 12) | (packet[10] << 4) | (packet[11] >> 4);
+    for(unsigned int i = 16; i < packLength; i = i + 4){
+        int32_t payload = bytes(packet[i], packet[i + 1], packet[i + 2], packet[i + 3]);
+        sum = sum + abs(payload);
+    }
+    unsigned int checksum = sum % ((1 << 23) - 1);
+    
     (void)packet;
-    return -1;
+    return checksum;
 }
 
 unsigned int reconstruct_array_sf(unsigned char *packets[], unsigned int packets_len, int *array, unsigned int array_len) {
