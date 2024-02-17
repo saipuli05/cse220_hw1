@@ -82,25 +82,27 @@ unsigned int compute_checksum_sf(unsigned char packet[])
 
 unsigned int reconstruct_array_sf(unsigned char *packets[], unsigned int packets_len, int *array, unsigned int array_len) {
     
+
     unsigned int numWrit = 0;
     for(unsigned int i = 0; i < packets_len; i++){
-        unsigned int compCheck = compute_checksum_sf(packets[i]);
-        unsigned int packCheck = ((packets[i][12] & 0x7F) << 16) | (packets[i][13] << 8) | packets[1][14];
+        unsigned char* packet = packets[i];
+        
+        unsigned int packCheck = ((packet[12] & 0x7F) << 16) | (packet[13] << 8) | packet[14];
 
-        if(compCheck != packCheck){
+        if(compute_checksum_sf(packet) != packCheck){
             continue;
         }
     
-    unsigned int fragOffset = (packets[i][8] << 6) | (packets[i][9] >> 2);
+    unsigned int fragOffset = (packet[8] << 6) | (packet[9] >> 2);
     unsigned int start = fragOffset / 4;
     if(start >= array_len){
         continue;
     }
-    unsigned int packetLength = ((packets[i][9] & 0x03) << 12) | (packets[i][10] << 4) | (packets[1][11] >> 4);
+    unsigned int packetLength = ((packet[9] & 0x03) << 12) | (packet[10] << 4) | (packet[11] >> 4);
     unsigned int payloadLength = (packetLength - 16) / 4;
 
     for(unsigned int j = 0; j < payloadLength && (start + j) < array_len; j++){
-        array[start + j] = bytes(packets[i][16 + j * 4], packets[i][17 + j * 4], packets[i][18 + j * 4], packets[i][19 + j * 4]);
+        array[start + j] = bytes(packet[16 + j * 4], packet[17 + j * 4], packet[18 + j * 4], packet[19 + j * 4]);
         numWrit++;
     }
 
