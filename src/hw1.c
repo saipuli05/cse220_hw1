@@ -121,6 +121,59 @@ unsigned int packetize_array_sf(int *array, unsigned int array_len, unsigned cha
                           unsigned int src_port, unsigned int dest_port, unsigned int maximum_hop_count,
                           unsigned int compression_scheme, unsigned int traffic_class)
 {
+    unsigned int intinPayload = max_payload / sizeof(int);
+    unsigned totalPack = array_len/ intinPayload;
+
+    if(array_len % intinPayload != 0){
+        totalPack += 1;
+    }
+
+    unsigned int numPack = 0;
+    unsigned int index = 0;
+    for(unsigned int i = 0; i< totalPack && i < packets_len; i++){
+        unsigned int intinPack = intinPayload;
+        if(index + intinPayload > array_len){
+            intinPack = array_len - index;
+        }
+        unsigned int payloadSize = intinPack * sizeof(int);
+        unsigned int packSize = 16 + payloadSize;
+        packets[i] = malloc(packSize);
+        if(packets[i] == NULL){
+            break;
+        }
+        packets[i][0] = (src_addr >> 24) & 0xFF;
+        packets[i][1] = (src_addr >> 16) & 0xFF;
+        packets[i][2] = (src_addr >> 8) & 0xFF;
+        packets[i][3] = src_addr & 0xFF;
+        packets[i][4] = (dest_addr >> 24) & 0xFF;
+        packets[i][5] = (dest_addr >> 16) & 0xFF;
+        packets[i][6] = (dest_addr >> 8) & 0xFF;
+        packets[i][7] = src_addr & 0xFF;
+        packets[i][8] = (src_port >> 8) & 0xFF;
+        packets[i][9] = src_port & 0xFF;
+        packets[i][10] = (dest_port >> 8) & 0xFF;
+        packets[i][11] = dest_port & 0xFF;
+        packets[i][12] = maximum_hop_count;
+        packets[i][13] = (compression_scheme << 4) | (traffic_class & 0x0F);
+        packets[i][14] = (packSize >> 8) & 0xFF;
+        packets[i][15] = packSize & 0xFF;
+
+        for(unsigned int j = 0; j < intinPack; j++){
+            int val = array[index + j];
+            int payIndex = 16 + j * 4;
+            packets[i][payIndex] = (val >> 24) & 0xFF;
+            packets[i][payIndex + 1] = (val >> 16) & 0xFF;
+            packets[i][payIndex + 2] = (val >> 8) & 0xFF;
+            packets[i][payIndex + 3] = val & 0xFF;
+            
+        }
+        index += intinPack;
+        numPack++;
+        
+
+    }
+    
+    
     (void)array;
     (void)array_len;
     (void)packets;
@@ -133,5 +186,5 @@ unsigned int packetize_array_sf(int *array, unsigned int array_len, unsigned cha
     (void)maximum_hop_count;
     (void)compression_scheme;
     (void)traffic_class;
-    return -1;
+    return numPack;
 }
