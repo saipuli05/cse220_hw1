@@ -121,26 +121,32 @@ unsigned int packetize_array_sf(int *array, unsigned int array_len, unsigned cha
                           unsigned int src_port, unsigned int dest_port, unsigned int maximum_hop_count,
                           unsigned int compression_scheme, unsigned int traffic_class)
 {
-    unsigned int intinPayload = max_payload / sizeof(int);
-    unsigned totalPack = array_len/ intinPayload;
+    unsigned int ints_in_payload = max_payload / sizeof(int);
+    unsigned int total_packets = (array_len + ints_in_payload - 1) / ints_in_payload;
 
-    if(array_len % intinPayload != 0){
-        totalPack += 1;
-    }
+    unsigned int num_packets_created = 0;
+    unsigned int array_index = 0;
+    for (unsigned int i = 0; i < total_packets && i < packets_len; i++) {
+        unsigned int ints_in_this_packet = ints_in_payload;
+        if (array_index + ints_in_payload > array_len) {
+            ints_in_this_packet = array_len - array_index;
+        }
+        unsigned int payload_size = ints_in_this_packet * sizeof(int);
+        unsigned int packet_size = 16 + payload_size;
+        packets[i] = (unsigned char*)malloc(packet_size);
 
-    unsigned int numPack = 0;
-    unsigned int index = 0;
-    for(unsigned int i = 0; i< totalPack && i < packets_len; i++){
-        unsigned int intinPack = intinPayload;
-        if(index + intinPayload > array_len){
-            intinPack = array_len - index;
+        if (packets[i] == NULL) {
+            // Handle memory allocation failure
+            for (unsigned int j = 0; j < i; j++) {
+                free(packets[j]); // Free any previously allocated memory
+            }
+            return num_packets_created; // Return the number of packets successfully created so far
         }
-        unsigned int payloadSize = intinPack * sizeof(int);
-        unsigned int packSize = 16 + payloadSize;
-        packets[i] = malloc(packSize);
-        if(packets[i] == NULL){
-            break;
-        }
+
+        // Zero out the packet memory to avoid uninitialized data
+        memset(packets[i], 0, packet_size);
+
+        // Header construction
         packets[i][0] = (src_addr >> 24) & 0xFF;
         packets[i][1] = (src_addr >> 16) & 0xFF;
         packets[i][2] = (src_addr >> 8) & 0xFF;
@@ -148,29 +154,28 @@ unsigned int packetize_array_sf(int *array, unsigned int array_len, unsigned cha
         packets[i][4] = (dest_addr >> 24) & 0xFF;
         packets[i][5] = (dest_addr >> 16) & 0xFF;
         packets[i][6] = (dest_addr >> 8) & 0xFF;
-        packets[i][7] = src_addr & 0xFF;
+        packets[i][7] = dest_addr & 0xFF;
         packets[i][8] = (src_port >> 8) & 0xFF;
         packets[i][9] = src_port & 0xFF;
         packets[i][10] = (dest_port >> 8) & 0xFF;
         packets[i][11] = dest_port & 0xFF;
         packets[i][12] = maximum_hop_count;
         packets[i][13] = (compression_scheme << 4) | (traffic_class & 0x0F);
-        packets[i][14] = (packSize >> 8) & 0xFF;
-        packets[i][15] = packSize & 0xFF;
+        packets[i][14] = (packet_size >> 8) & 0xFF;
+        packets[i][15] = packet_size & 0xFF;
 
-        for(unsigned int j = 0; j < intinPack; j++){
-            int val = array[index + j];
-            int payIndex = 16 + j * 4;
-            packets[i][payIndex] = (val >> 24) & 0xFF;
-            packets[i][payIndex + 1] = (val >> 16) & 0xFF;
-            packets[i][payIndex + 2] = (val >> 8) & 0xFF;
-            packets[i][payIndex + 3] = val & 0xFF;
-            
+        // Payload construction
+        for (unsigned int j = 0; j < ints_in_this_packet; j++) {
+            int val = array[array_index + j];
+            unsigned int payload_index = 16 + j * 4;
+            packets[i][payload_index] = (val >> 24) & 0xFF;
+            packets[i][payload_index + 1] = (val >> 16) & 0xFF;
+            packets[i][payload_index + 2] = (val >> 8) & 0xFF;
+            packets[i][payload_index + 3] = val & 0xFF;
         }
-        index += intinPack;
-        numPack++;
-        
 
+        array_index += ints_in_this_packet;
+        num_packets_created++;
     }
     
     
@@ -186,5 +191,5 @@ unsigned int packetize_array_sf(int *array, unsigned int array_len, unsigned cha
     (void)maximum_hop_count;
     (void)compression_scheme;
     (void)traffic_class;
-    return numPack;
+    return num_packets_created;
 }
